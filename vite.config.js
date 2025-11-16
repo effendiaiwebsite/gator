@@ -8,6 +8,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: process.env.PORT || 4173,
     strictPort: false,
+    allowedHosts: [
+      'gator.onrender.com',
+      '.onrender.com',
+      'localhost'
+    ]
   },
   server: {
     host: '0.0.0.0',
