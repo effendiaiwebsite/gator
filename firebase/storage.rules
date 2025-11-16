@@ -1,0 +1,85 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ========================================
+    // SECURITY HELPER FUNCTIONS
+    // ========================================
+
+    // Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if user is admin (custom claim)
+    function isAdmin() {
+      return isSignedIn() &&
+             request.auth.token.admin == true;
+    }
+
+    // Check if user owns the file
+    function isOwner(userId) {
+      return isSignedIn() &&
+             request.auth.uid == userId;
+    }
+
+    // Validate file size (strict 10MB limit to prevent abuse)
+    function isValidSize() {
+      return request.resource.size > 0 &&
+             request.resource.size <= 10 * 1024 * 1024; // 10MB max
+    }
+
+    // Validate file type (PDF, JPG, PNG, and encrypted files - no executables!)
+    function isValidFileType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('image/jpeg') ||
+             request.resource.contentType.matches('image/jpg') ||
+             request.resource.contentType.matches('image/png') ||
+             request.resource.contentType.matches('application/octet-stream'); // Encrypted files
+    }
+
+    // Validate file name (prevent directory traversal attacks)
+    function isValidFileName(fileName) {
+      return !fileName.matches('.*[/\\\\].*') && // No slashes
+             !fileName.matches('.*\\.\\..*') &&   // No ..
+             fileName.size() > 0 &&
+             fileName.size() < 255;
+    }
+
+    // Check upload limit per user (max 50 files to prevent storage bombing)
+    // Note: This is a soft limit, hard enforcement via quotas
+    function hasUploadQuota(userId) {
+      // In production, check Firestore document count
+      // For now, trust client-side validation
+      return true;
+    }
+
+    // ========================================
+    // DOCUMENTS STORAGE
+    // ========================================
+    match /documents/{userId}/{fileName} {
+      // Create: Strict validation to prevent abuse
+      allow create: if isOwner(userId) &&
+                       isValidSize() &&
+                       isValidFileType() &&
+                       isValidFileName(fileName) &&
+                       hasUploadQuota(userId);
+
+      // Read: Owners can read their own files, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Update: Not allowed (immutable files - delete and re-upload instead)
+      allow update: if false;
+
+      // Delete: Only owners can delete their own files
+      allow delete: if isOwner(userId);
+    }
+
+    // ========================================
+    // DENY ALL OTHER ACCESS
+    // ========================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,39 @@
+
+> gator-app@0.0.0 test
+> vitest --run --reporter=verbose
+
+
+ RUN  v1.6.0 /home/vboxuser/programs/JoeyAds/Gator/gator-app
+
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > calculates correct savings for startup revenue ($0-50k)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > calculates correct savings for established business ($100k-250k)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > calculates correct savings for scaling business ($250k-500k)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > applies employee multiplier correctly (1-5 employees)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > applies province adjustments correctly (Quebec +15%)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > applies province adjustments correctly (Alberta -10%)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > handles edge case: null revenue
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > handles edge case: invalid province
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > handles enterprise tier ($500k+)
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > provides breakdown with revenue, employees, and province components
+ ✓ src/utils/calculator.test.js > Calculator Utility > calculateSavings > generates appropriate tax strategy reasons
+ ✓ src/utils/calculator.test.js > Calculator Utility > formatCurrency > formats currency correctly in CAD format
+ ✓ src/utils/calculator.test.js > Calculator Utility > formatCurrency > handles zero correctly
+ ✓ src/utils/calculator.test.js > Calculator Utility > formatCurrency > rounds to nearest dollar (no cents)
+ ✓ src/utils/calculator.test.js > Calculator Utility > formatCurrency > handles large numbers
+ ✓ src/utils/calculator.test.js > Calculator Utility > formatCurrency > handles negative numbers (edge case)
+ ✓ src/utils/calculator.test.js > Calculator Utility > getRevenueLabel > returns correct English labels
+ ✓ src/utils/calculator.test.js > Calculator Utility > getRevenueLabel > returns correct French labels
+ ✓ src/utils/calculator.test.js > Calculator Utility > getRevenueLabel > defaults to English if language not specified
+ ✓ src/utils/calculator.test.js > Calculator Utility > getRevenueLabel > returns range if not found
+ ✓ src/utils/calculator.test.js > Calculator Utility > getEmployeeLabel > returns correct English labels
+ ✓ src/utils/calculator.test.js > Calculator Utility > getEmployeeLabel > returns correct French labels
+ ✓ src/utils/calculator.test.js > Calculator Utility > getEmployeeLabel > defaults to English if language not specified
+ ✓ src/utils/calculator.test.js > Calculator Utility > Security: Input Validation > does not execute code in revenue parameter
+ ✓ src/utils/calculator.test.js > Calculator Utility > Security: Input Validation > handles SQL injection attempts safely
+ ✓ src/utils/calculator.test.js > Calculator Utility > Security: Input Validation > handles extremely large numbers safely
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  12:26:17
+   Duration  2.88s (transform 177ms, setup 316ms, collect 132ms, tests 29ms, environment 999ms, prepare 529ms)
+

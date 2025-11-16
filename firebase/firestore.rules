@@ -1,0 +1,151 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // SECURITY HELPER FUNCTIONS
+    // ========================================
+
+    // Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if user is admin (custom claim)
+    function isAdmin() {
+      return isSignedIn() &&
+             request.auth.token.admin == true;
+    }
+
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isSignedIn() &&
+             request.auth.uid == userId;
+    }
+
+    // Validate email format
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    // Validate client data on creation
+    function isValidClientData() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['email', 'firstName', 'lastName', 'status', 'createdAt']) &&
+             isValidEmail(data.email) &&
+             data.firstName is string && data.firstName.size() > 0 && data.firstName.size() < 100 &&
+             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() < 100 &&
+             data.status in ['bronze', 'silver', 'gold'] &&
+             (data.province == null || data.province in ['ON', 'QC', 'BC', 'AB', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL', 'NT', 'YT', 'NU']);
+    }
+
+    // Validate document metadata
+    function isValidDocument() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['fileName', 'fileUrl', 'fileType', 'encrypted', 'uploadedAt', 'fileSize']) &&
+             data.fileName is string && data.fileName.size() > 0 && data.fileName.size() < 255 &&
+             data.fileType in ['T4', 'T4A', 'T5', 'Receipt', 'Invoice', 'Other'] &&
+             data.encrypted == true &&
+             data.fileSize > 0 && data.fileSize < 10485760; // 10MB limit
+    }
+
+    // Validate message
+    function isValidMessage() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['sender', 'text', 'sentAt']) &&
+             data.sender in ['client', 'admin'] &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000;
+    }
+
+    // Rate limiting: Max 100 reads per user per day (checked via resource usage)
+    // Note: This is enforced via App Check and Firebase quotas, not rules
+
+    // ========================================
+    // CLIENTS COLLECTION
+    // ========================================
+    match /clients/{userId} {
+      // Create: Authenticated users can create client documents
+      allow create: if isSignedIn() &&
+                       isValidClientData();
+
+      // Read: Users can read their own data, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+
+      // List: Allow authenticated users to query the clients collection
+      // This is critical for finding existing client profiles by email
+      // Firestore rules can't check query WHERE clause content, so we allow
+      // authenticated users to list/query (the app code ensures they only query their email)
+      allow list: if isSignedIn() || isAdmin();
+
+      // Update: Users can update documents (but not status), admins can update anything
+      allow update: if (isSignedIn() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'email', 'createdAt'])) ||
+                       isAdmin();
+
+      // Delete: Only admins can delete
+      allow delete: if isAdmin();
+
+      // ========================================
+      // DOCUMENTS SUBCOLLECTION
+      // ========================================
+      match /documents/{documentId} {
+        // Create: Only owners, with validation
+        allow create: if isOwner(userId) &&
+                         isValidDocument();
+
+        // Read: Owners and admins
+        allow read: if isOwner(userId) || isAdmin();
+
+        // Update/Delete: Only owners (to remove uploaded files)
+        allow update, delete: if isOwner(userId);
+      }
+
+      // ========================================
+      // MESSAGES SUBCOLLECTION
+      // ========================================
+      match /messages/{messageId} {
+        // Create: Owners (as client) or admins
+        allow create: if (isOwner(userId) && isValidMessage() && request.resource.data.sender == 'client') ||
+                         (isAdmin() && isValidMessage() && request.resource.data.sender == 'admin');
+
+        // Read: Owners and admins
+        allow read: if isOwner(userId) || isAdmin();
+
+        // Update: Only admins can mark as read
+        allow update: if isAdmin() &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+
+        // Delete: Only admins
+        allow delete: if isAdmin();
+      }
+
+      // ========================================
+      // PAYMENTS SUBCOLLECTION
+      // ========================================
+      match /payments/{paymentId} {
+        // Read only: Owners and admins
+        allow read: if isOwner(userId) || isAdmin();
+
+        // Only admins can create/update/delete payments
+        allow write: if isAdmin();
+      }
+
+      // ========================================
+      // NUDGES SUBCOLLECTION
+      // ========================================
+      match /nudges/{nudgeId} {
+        // Read only for clients
+        allow read: if isOwner(userId);
+
+        // Only admins can create/update/delete nudges
+        allow write: if isAdmin();
+      }
+    }
+
+    // ========================================
+    // DENY ALL OTHER ACCESS
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

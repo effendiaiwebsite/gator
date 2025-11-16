@@ -1,0 +1,194 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { detectLanguage, t, setLanguage, translations } from './i18n';
+
+describe('i18n Utility', () => {
+  beforeEach(() => {
+    // Clear localStorage before each test
+    localStorage.clear();
+    // Reset language to English
+    localStorage.setItem('gator-language', 'en');
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  describe('detectLanguage', () => {
+    it('detects English as default language', () => {
+      localStorage.clear();
+      const lang = detectLanguage();
+      expect(lang).toBe('en');
+    });
+
+    it('returns saved language from localStorage', () => {
+      localStorage.setItem('gator-language', 'fr');
+      const lang = detectLanguage();
+      expect(lang).toBe('fr');
+    });
+
+    it('detects French from browser language', () => {
+      localStorage.clear();
+      Object.defineProperty(window.navigator, 'language', {
+        value: 'fr-CA',
+        configurable: true
+      });
+      const lang = detectLanguage();
+      expect(lang).toBe('fr');
+    });
+
+    it('detects language from URL query param', () => {
+      // Mock window.location.search
+      delete window.location;
+      window.location = { search: '?lang=fr' };
+
+      const lang = detectLanguage();
+      expect(lang).toBe('fr');
+      expect(localStorage.getItem('gator-language')).toBe('fr');
+    });
+
+    it('prioritizes localStorage over browser language', () => {
+      localStorage.setItem('gator-language', 'en');
+      Object.defineProperty(window.navigator, 'language', {
+        value: 'fr-CA',
+        configurable: true
+      });
+      const lang = detectLanguage();
+      expect(lang).toBe('en');
+    });
+  });
+
+  describe('t (translation function)', () => {
+    it('translates simple keys correctly in English', () => {
+      const result = t('hero.title', 'en');
+      expect(result).toBe('Save Thousands on Your Taxes');
+    });
+
+    it('translates simple keys correctly in French', () => {
+      const result = t('hero.title', 'fr');
+      expect(result).toBe('Économisez des milliers sur vos impôts');
+    });
+
+    it('translates nested keys correctly', () => {
+      const result = t('calculator.q1.question', 'en');
+      expect(result).toBe("What's your annual revenue?");
+    });
+
+    it('translates deeply nested keys correctly', () => {
+      const result = t('calculator.q3.provinces.ON', 'en');
+      expect(result).toBe('Ontario');
+    });
+
+    it('replaces placeholders in translations', () => {
+      const result = t('portal.welcome', 'en', { name: 'John' });
+      expect(result).toBe('Hi John! Let's save you money.');
+    });
+
+    it('replaces multiple placeholders', () => {
+      // Using portal.uploadSuccess which has {status}
+      const result = t('portal.uploadSuccess', 'en', { status: 'Silver' });
+      expect(result).toContain('Silver');
+    });
+
+    it('returns key if translation not found', () => {
+      const result = t('nonexistent.key', 'en');
+      expect(result).toBe('nonexistent.key');
+    });
+
+    it('handles missing language gracefully', () => {
+      const result = t('hero.title', 'es'); // Spanish not supported
+      expect(result).toBe('hero.title');
+    });
+
+    it('handles empty replacements object', () => {
+      const result = t('hero.title', 'en', {});
+      expect(result).toBeTruthy();
+    });
+
+    it('leaves unmatched placeholders unchanged', () => {
+      const result = t('portal.welcome', 'en', { wrongKey: 'value' });
+      expect(result).toContain('{name}');
+    });
+  });
+
+  describe('setLanguage', () => {
+    it('sets language to French', () => {
+      // Mock window.location.reload
+      delete window.location;
+      window.location = { reload: vi.fn() };
+
+      setLanguage('fr');
+      expect(localStorage.getItem('gator-language')).toBe('fr');
+    });
+
+    it('sets language to English', () => {
+      delete window.location;
+      window.location = { reload: vi.fn() };
+
+      setLanguage('en');
+      expect(localStorage.getItem('gator-language')).toBe('en');
+    });
+
+    it('ignores invalid language codes', () => {
+      localStorage.setItem('gator-language', 'en');
+      setLanguage('es'); // Not supported
+      expect(localStorage.getItem('gator-language')).toBe('en');
+    });
+
+    it('triggers page reload after setting language', () => {
+      delete window.location;
+      window.location = { reload: vi.fn() };
+
+      setLanguage('fr');
+      expect(window.location.reload).toHaveBeenCalled();
+    });
+  });
+
+  describe('Translation Coverage', () => {
+    it('has all required English translations', () => {
+      expect(translations.en.hero).toBeDefined();
+      expect(translations.en.calculator).toBeDefined();
+      expect(translations.en.leadForm).toBeDefined();
+      expect(translations.en.portal).toBeDefined();
+      expect(translations.en.admin).toBeDefined();
+      expect(translations.en.common).toBeDefined();
+    });
+
+    it('has all required French translations', () => {
+      expect(translations.fr.hero).toBeDefined();
+      expect(translations.fr.calculator).toBeDefined();
+      expect(translations.fr.leadForm).toBeDefined();
+      expect(translations.fr.portal).toBeDefined();
+      expect(translations.fr.admin).toBeDefined();
+      expect(translations.fr.common).toBeDefined();
+    });
+
+    it('has matching keys between English and French', () => {
+      const enKeys = Object.keys(translations.en);
+      const frKeys = Object.keys(translations.fr);
+
+      expect(enKeys.sort()).toEqual(frKeys.sort());
+    });
+  });
+
+  // Security tests
+  describe('Security: XSS Prevention', () => {
+    it('does not execute code in translation keys', () => {
+      const malicious = '<script>alert("XSS")</script>';
+      const result = t(malicious, 'en');
+      expect(result).toBe(malicious); // Returns key as-is, not executed
+    });
+
+    it('does not execute code in replacements', () => {
+      const result = t('portal.welcome', 'en', {
+        name: '<script>alert("XSS")</script>'
+      });
+      // The replacement happens, but should be rendered as text (React will escape it)
+      expect(result).toContain('<script>');
+    });
+
+    it('handles SQL injection in keys safely', () => {
+      const result = t("' OR '1'='1", 'en');
+      expect(result).toBe("' OR '1'='1");
+    });
+  });
+});

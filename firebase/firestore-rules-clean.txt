@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             (request.auth.token.admin == true || request.auth.token.email == 'satindersandhu138@gmail.com');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() &&
+             request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    function isValidClientData() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['email', 'firstName', 'lastName', 'status', 'createdAt']) &&
+             isValidEmail(data.email) &&
+             data.firstName is string && data.firstName.size() > 0 && data.firstName.size() < 100 &&
+             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() < 100 &&
+             data.status in ['bronze', 'silver', 'gold'] &&
+             (data.province == null || data.province in ['ON', 'QC', 'BC', 'AB', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL', 'NT', 'YT', 'NU']);
+    }
+
+    function isValidDocument() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['fileName', 'fileUrl', 'fileType', 'encrypted', 'uploadedAt', 'fileSize']) &&
+             data.fileName is string && data.fileName.size() > 0 && data.fileName.size() < 255 &&
+             data.fileType in ['T4', 'T4A', 'T5', 'Receipt', 'Invoice', 'Other'] &&
+             data.encrypted == true &&
+             data.fileSize > 0 && data.fileSize < 10485760;
+    }
+
+    function isValidMessage() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['sender', 'text', 'sentAt']) &&
+             data.sender in ['client', 'admin'] &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000;
+    }
+
+    match /clients/{userId} {
+      allow create: if isSignedIn() &&
+                       isValidClientData();
+
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow list: if isSignedIn();
+
+      allow update: if (isSignedIn() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'email', 'createdAt'])) ||
+                       isAdmin();
+
+      allow delete: if isAdmin();
+
+      match /documents/{documentId} {
+        allow create: if isOwner(userId) &&
+                         isValidDocument();
+
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow update, delete: if isOwner(userId);
+      }
+
+      match /messages/{messageId} {
+        allow create: if (isOwner(userId) && isValidMessage() && request.resource.data.sender == 'client') ||
+                         (isAdmin() && isValidMessage() && request.resource.data.sender == 'admin');
+
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow update: if isAdmin() &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+
+        allow delete: if isAdmin();
+      }
+
+      match /payments/{paymentId} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow write: if isAdmin();
+      }
+
+      match /nudges/{nudgeId} {
+        allow read: if isOwner(userId);
+
+        allow write: if isAdmin();
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
