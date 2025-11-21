@@ -211,7 +211,7 @@ const Home = () => {
 
       <main className="flex-grow">
         {/* Hero Section with Animated Gator */}
-        <section className="relative bg-gradient-to-br from-gator-green-dark via-gator-green to-gator-green-light text-white py-20 overflow-hidden">
+        <section className="relative bg-gradient-to-br from-gator-green-dark via-gator-green to-gator-green-light text-white pt-20 pb-32 overflow-hidden">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <motion.div
