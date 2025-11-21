@@ -512,11 +512,24 @@ const Payroll = () => {
                     <div className="text-6xl font-bold text-gator-green-dark mb-2">
                       ${estimatedCost}<span className="text-3xl">/month</span>
                     </div>
-                    <p className="text-gray-600 mb-6">
+                    <p className="text-gray-600 mb-4">
                       For {employeeCount} employee{employeeCount > 1 ? 's' : ''} • {payFrequency.charAt(0).toUpperCase() + payFrequency.slice(1)} payroll
                     </p>
-                    <a href="/sign-in" className="btn-primary inline-block">
-                      Get Started with Payroll
+
+                    {/* Personalized tip */}
+                    <div className="bg-white border-l-4 border-gator-green-dark p-4 rounded mb-6 text-left max-w-md mx-auto">
+                      <p className="text-sm font-semibold text-gator-green-dark mb-1">Our Recommendation:</p>
+                      <p className="text-gray-700 text-sm">
+                        {employeeCount <= 5
+                          ? "For small teams, our Starter plan offers everything you need to stay compliant and pay your team accurately."
+                          : employeeCount <= 10
+                          ? "Our Growth plan is perfect for your team size - includes vacation tracking and priority support."
+                          : "With your team size, our Business plan provides dedicated support and advanced features like multi-rate tracking."}
+                      </p>
+                    </div>
+
+                    <a href="/sign-in" className="btn-primary inline-flex items-center gap-2">
+                      Continue to Your Portal <ArrowRight size={18} />
                     </a>
                   </motion.div>
                 )}
@@ -665,6 +678,8 @@ const Payroll = () => {
                 description={payrollQuiz.description}
                 questions={payrollQuiz.questions}
                 onComplete={(answers) => console.log('Payroll quiz completed:', answers)}
+                completionMessage="Your payroll compliance check is complete! Staying on top of CRA deadlines and accurate deductions is crucial to avoid costly penalties."
+                completionTip="Let us handle your payroll so you never worry about compliance again. Sign up for your portal to get started with accurate, on-time payroll processing."
               />
             </div>
           </div>

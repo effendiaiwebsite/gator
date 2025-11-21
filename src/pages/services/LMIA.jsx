@@ -836,6 +836,8 @@ const LMIA = () => {
                 description={eligibilityQuiz.description}
                 questions={eligibilityQuiz.questions}
                 onComplete={(answers) => console.log('Immigration quiz completed:', answers)}
+                completionMessage="Great news! Based on your answers, there may be immigration pathways available for you. Canada welcomes skilled workers and families through various programs."
+                completionTip="Sign up for your portal to get a detailed assessment of your immigration options. Our team can help you understand which pathway is best for your situation and guide you through the document preparation process."
               />
             </div>
           </div>

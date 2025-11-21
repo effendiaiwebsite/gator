@@ -437,6 +437,8 @@ const Home = () => {
                   description={deductionQuiz.description}
                   questions={deductionQuiz.questions}
                   onComplete={handleQuizComplete}
+                  completionMessage="Based on your answers, you may be missing valuable tax deductions! Many Canadians leave money on the table by not claiming eligible expenses."
+                  completionTip="Sign up for your free portal to get a personalized savings estimate and connect with our tax experts who can help you maximize your refund."
                 />
               </div>
             </div>

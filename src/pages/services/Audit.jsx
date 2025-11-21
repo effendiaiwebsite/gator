@@ -775,6 +775,8 @@ const Audit = () => {
                 description={auditQuiz.description}
                 questions={auditQuiz.questions}
                 onComplete={(answers) => console.log('Audit risk quiz completed:', answers)}
+                completionMessage="Based on your responses, we've identified potential audit risk factors in your situation. Don't worry - with proper documentation and professional guidance, most audit concerns can be addressed proactively."
+                completionTip="Get ahead of any potential issues by signing up for your portal. Our experts can review your specific situation and help ensure you're audit-ready."
               />
             </div>
           </div>

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const InteractiveQuiz = ({ questions, onComplete, title, description }) => {
+const InteractiveQuiz = ({ questions, onComplete, title, description, completionMessage, completionTip }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
+  const navigate = useNavigate();
 
   const handleAnswer = (questionId, answer) => {
     setAnswers(prev => ({
@@ -43,19 +45,39 @@ const InteractiveQuiz = ({ questions, onComplete, title, description }) => {
       >
         <CheckCircle size={64} className="text-gator-green-dark mx-auto mb-4" />
         <h3 className="text-2xl font-bold text-navy mb-4">Quiz Complete!</h3>
-        <p className="text-gray-700 mb-6">
-          Thanks for completing the quiz. We'll use your answers to provide personalized recommendations.
+
+        {/* Personalized Message */}
+        <p className="text-gray-700 mb-4">
+          {completionMessage || "Thanks for completing the quiz. We'll use your answers to provide personalized recommendations."}
         </p>
-        <button
-          onClick={() => {
-            setCurrentQuestion(0);
-            setAnswers({});
-            setShowResults(false);
-          }}
-          className="btn-secondary"
-        >
-          Take Again
-        </button>
+
+        {/* Tip/Recommendation */}
+        {completionTip && (
+          <div className="bg-white border-l-4 border-gator-green-dark p-4 rounded mb-6 text-left">
+            <p className="text-sm font-semibold text-gator-green-dark mb-1">Our Recommendation:</p>
+            <p className="text-gray-700 text-sm">{completionTip}</p>
+          </div>
+        )}
+
+        {/* Portal CTA */}
+        <div className="space-y-3">
+          <button
+            onClick={() => navigate('/sign-in')}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            Continue to Your Portal <ArrowRight size={18} />
+          </button>
+          <button
+            onClick={() => {
+              setCurrentQuestion(0);
+              setAnswers({});
+              setShowResults(false);
+            }}
+            className="btn-secondary w-full"
+          >
+            Take Again
+          </button>
+        </div>
       </motion.div>
     );
   }
