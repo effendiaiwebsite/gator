@@ -1,13 +1,24 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import {
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
   onAuthStateChanged,
-  signOut as firebaseSignOut
+  signOut as firebaseSignOut,
+  sendEmailVerification,
+  RecaptchaVerifier,
+  PhoneAuthProvider,
+  signInWithCredential
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import {
+  auth,
+  db,
+  googleProvider,
+  facebookProvider,
+  twitterProvider,
+  yahooProvider
+} from '../config/firebase';
 
 // Auth Context
 const AuthContext = createContext(null);
@@ -66,55 +77,64 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const sendMagicLink = async (email, clientData = null) => {
+  // Email/Password Sign Up
+  const signUpWithEmail = async (email, password, clientData = null) => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔥 Firebase: Sending magic link to:', email);
-      console.log('🔥 Firebase: Client data:', clientData);
-      console.log('🔥 Firebase: Action URL:', `${import.meta.env.VITE_APP_URL}/portal`);
+      console.log('🔥 Firebase: Creating user with email/password:', email);
 
-      const actionCodeSettings = {
-        url: `${import.meta.env.VITE_APP_URL}/portal`,
-        handleCodeInApp: true,
-      };
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
 
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      console.log('✅ User created with UID:', firebaseUser.uid);
 
-      console.log('✅ Firebase: Magic link sent successfully');
-
-      // Save email to localStorage for sign-in completion
-      window.localStorage.setItem('emailForSignIn', email);
-
-      // Save client data for later (when they click the link)
-      if (clientData) {
-        window.localStorage.setItem('clientData', JSON.stringify(clientData));
-        console.log('💾 Saved client data to localStorage');
+      // Send email verification (optional - don't block on failure)
+      try {
+        await sendEmailVerification(firebaseUser);
+        console.log('📧 Verification email sent');
+      } catch (emailErr) {
+        console.warn('⚠️ Failed to send verification email:', emailErr);
+        // Don't block account creation if email fails
       }
+
+      // Create user document in Firestore
+      const userDocRef = doc(db, 'clients', firebaseUser.uid);
+      await setDoc(userDocRef, {
+        email: firebaseUser.email,
+        firstName: clientData?.firstName || '',
+        lastName: clientData?.lastName || '',
+        province: clientData?.province || 'ON',
+        annualRevenue: clientData?.annualRevenue || '0-50k',
+        employeeCount: clientData?.employeeCount || '0',
+        estimatedSavings: clientData?.estimatedSavings || 0,
+        status: 'bronze',
+        adSource: clientData?.adSource || 'Organic',
+        utmCampaign: clientData?.utmCampaign || null,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      });
+
+      console.log('✅ User document created');
 
       setLoading(false);
       return {
         success: true,
-        message: 'Magic link sent! Check your email inbox (and spam folder).'
+        message: 'Account created! Please check your email to verify your account.'
       };
     } catch (err) {
-      console.error('❌ Firebase Error sending magic link:', err);
-      console.error('Error code:', err.code);
-      console.error('Error message:', err.message);
-
+      console.error('❌ Error creating user:', err);
       setLoading(false);
       setError(err.message);
 
-      let userMessage = 'Failed to send magic link. ';
-      if (err.code === 'auth/invalid-email') {
-        userMessage += 'Please enter a valid email address.';
-      } else if (err.code === 'auth/missing-android-pkg-name') {
-        userMessage += 'Configuration error. Please contact support.';
-      } else if (err.code === 'auth/missing-continue-uri') {
-        userMessage += 'Configuration error. Please contact support.';
-      } else if (err.code === 'auth/unauthorized-continue-uri') {
-        userMessage += 'Configuration error. Please contact support.';
+      let userMessage = 'Failed to create account. ';
+      if (err.code === 'auth/email-already-in-use') {
+        userMessage = 'Email already in use. Please sign in instead.';
+      } else if (err.code === 'auth/weak-password') {
+        userMessage = 'Password is too weak. Please use at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        userMessage = 'Invalid email address.';
       } else {
         userMessage += err.message;
       }
@@ -123,96 +143,225 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const completeMagicLinkSignIn = async () => {
+  // Email/Password Sign In
+  const signInWithEmail = async (email, password) => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔥 Firebase: Checking if URL is sign-in link...');
-      console.log('Current URL:', window.location.href);
+      console.log('🔥 Firebase: Signing in with email/password:', email);
 
-      if (!isSignInWithEmailLink(auth, window.location.href)) {
-        throw new Error('Invalid sign-in link. Please use the link from your email.');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      console.log('✅ Sign-in successful with UID:', firebaseUser.uid);
+
+      // Update last login
+      const userDocRef = doc(db, 'clients', firebaseUser.uid);
+      await setDoc(userDocRef, {
+        lastLogin: serverTimestamp()
+      }, { merge: true });
+
+      setLoading(false);
+      return { success: true, user: firebaseUser };
+    } catch (err) {
+      console.error('❌ Error signing in:', err);
+      setLoading(false);
+      setError(err.message);
+
+      let userMessage = 'Failed to sign in. ';
+      if (err.code === 'auth/user-not-found') {
+        userMessage = 'No account found with this email. Please sign up first.';
+      } else if (err.code === 'auth/wrong-password') {
+        userMessage = 'Incorrect password. Please try again.';
+      } else if (err.code === 'auth/invalid-email') {
+        userMessage = 'Invalid email address.';
+      } else if (err.code === 'auth/user-disabled') {
+        userMessage = 'This account has been disabled.';
+      } else {
+        userMessage += err.message;
       }
 
-      console.log('✅ Valid sign-in link detected');
+      return { success: false, error: userMessage };
+    }
+  };
 
-      // Get email from localStorage
-      let email = window.localStorage.getItem('emailForSignIn');
+  // OAuth Sign In (Google, Facebook, Twitter, Yahoo)
+  const signInWithOAuth = async (providerName, clientData = null) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-      if (!email) {
-        // Prompt user to provide email if not in localStorage
-        email = window.prompt('Please provide your email for confirmation');
+      let provider;
+      switch (providerName) {
+        case 'google':
+          provider = googleProvider;
+          break;
+        case 'facebook':
+          provider = facebookProvider;
+          break;
+        case 'twitter':
+          provider = twitterProvider;
+          break;
+        case 'yahoo':
+          provider = yahooProvider;
+          break;
+        default:
+          throw new Error('Invalid provider');
       }
 
-      if (!email) {
-        throw new Error('Email is required to complete sign-in');
-      }
+      console.log('🔥 Firebase: Signing in with', providerName);
 
-      console.log('🔥 Firebase: Signing in with email link...');
-      const result = await signInWithEmailLink(auth, email, window.location.href);
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
 
-      console.log('✅ Sign-in successful with UID:', result.user.uid);
+      console.log('✅ OAuth sign-in successful with UID:', firebaseUser.uid);
 
-      // Store email for return (before clearing localStorage)
-      const userEmail = email;
-
-      // Clear the email from storage
-      window.localStorage.removeItem('emailForSignIn');
-
-      // Get client data from localStorage (if exists from lead form)
-      const clientDataStr = window.localStorage.getItem('clientData');
-      let clientData = null;
-      if (clientDataStr) {
-        clientData = JSON.parse(clientDataStr);
-        window.localStorage.removeItem('clientData');
-        console.log('💾 Retrieved client data from localStorage');
-      }
-
-      // Use Firebase Auth UID as the document ID (per deployment.md design)
-      // Firebase Email Link creates ONE permanent UID per email address
-      const userDocRef = doc(db, 'clients', result.user.uid);
+      // Check if user document exists
+      const userDocRef = doc(db, 'clients', firebaseUser.uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists() && clientData) {
-        // Create new user document with client data
-        console.log('📝 Creating new client document with UID:', result.user.uid);
+      if (!userDoc.exists()) {
+        // Create new user document
+        console.log('📝 Creating new user document');
+
+        // Extract name from OAuth profile
+        const displayName = firebaseUser.displayName || '';
+        const nameParts = displayName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
         await setDoc(userDocRef, {
-          email: result.user.email,
-          firstName: clientData.firstName || '',
-          lastName: clientData.lastName || '',
-          province: clientData.province || 'ON',
-          annualRevenue: clientData.annualRevenue || '0-50k',
-          employeeCount: clientData.employeeCount || '0',
-          estimatedSavings: clientData.estimatedSavings || 0,
+          email: firebaseUser.email,
+          firstName: clientData?.firstName || firstName,
+          lastName: clientData?.lastName || lastName,
+          province: clientData?.province || 'ON',
+          annualRevenue: clientData?.annualRevenue || '0-50k',
+          employeeCount: clientData?.employeeCount || '0',
+          estimatedSavings: clientData?.estimatedSavings || 0,
           status: 'bronze',
-          adSource: clientData.adSource || 'Organic',
-          utmCampaign: clientData.utmCampaign || null,
+          adSource: clientData?.adSource || 'Organic',
+          utmCampaign: clientData?.utmCampaign || null,
+          authProvider: providerName,
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp()
         });
-        console.log('✅ Client document created at clients/' + result.user.uid);
-      } else if (userDoc.exists()) {
-        // Update last login for existing user
-        console.log('📝 Updating last login for existing user');
+      } else {
+        // Update last login
+        console.log('📝 Updating last login');
         await setDoc(userDocRef, {
           lastLogin: serverTimestamp()
         }, { merge: true });
-        console.log('✅ Last login updated');
-      } else {
-        console.log('⚠️  No client data found - user may need to re-enter info');
       }
 
       setLoading(false);
-      return { success: true, user: result.user, email: userEmail };
+      return { success: true, user: firebaseUser };
     } catch (err) {
-      console.error('❌ Firebase Error completing sign-in:', err);
-      console.error('Error code:', err.code);
-      console.error('Error message:', err.message);
-
+      console.error('❌ Error with OAuth sign-in:', err);
       setLoading(false);
       setError(err.message);
-      return { success: false, error: err.message };
+
+      let userMessage = 'Failed to sign in with ' + providerName + '. ';
+      if (err.code === 'auth/popup-closed-by-user') {
+        userMessage = 'Sign-in cancelled.';
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        userMessage = 'An account already exists with this email using a different sign-in method.';
+      } else {
+        userMessage += err.message;
+      }
+
+      return { success: false, error: userMessage };
+    }
+  };
+
+  // Send OTP for phone verification (for registration flow)
+  const sendOTP = async (phoneNumber, recaptchaContainerId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔥 Firebase: Sending OTP to:', phoneNumber);
+
+      // Initialize reCAPTCHA
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(
+          auth,
+          recaptchaContainerId,
+          {
+            size: 'normal',
+            callback: () => {
+              console.log('reCAPTCHA solved');
+            },
+            'expired-callback': () => {
+              console.log('reCAPTCHA expired');
+              window.recaptchaVerifier = null;
+            }
+          }
+        );
+      }
+
+      const phoneProvider = new PhoneAuthProvider(auth);
+      const verificationId = await phoneProvider.verifyPhoneNumber(
+        phoneNumber,
+        window.recaptchaVerifier
+      );
+
+      console.log('✅ OTP sent successfully');
+
+      setLoading(false);
+      return {
+        success: true,
+        verificationId,
+        message: 'OTP sent to your phone!'
+      };
+    } catch (err) {
+      console.error('❌ Error sending OTP:', err);
+      setLoading(false);
+      setError(err.message);
+
+      let userMessage = 'Failed to send OTP. ';
+      if (err.code === 'auth/invalid-phone-number') {
+        userMessage = 'Invalid phone number format.';
+      } else if (err.code === 'auth/too-many-requests') {
+        userMessage = 'Too many requests. Please try again later.';
+      } else {
+        userMessage += err.message;
+      }
+
+      return { success: false, error: userMessage };
+    }
+  };
+
+  // Verify OTP
+  const verifyOTP = async (verificationId, otpCode) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔥 Firebase: Verifying OTP');
+
+      const credential = PhoneAuthProvider.credential(verificationId, otpCode);
+      const result = await signInWithCredential(auth, credential);
+
+      console.log('✅ OTP verified successfully');
+
+      setLoading(false);
+      return { success: true, user: result.user };
+    } catch (err) {
+      console.error('❌ Error verifying OTP:', err);
+      setLoading(false);
+      setError(err.message);
+
+      let userMessage = 'Failed to verify OTP. ';
+      if (err.code === 'auth/invalid-verification-code') {
+        userMessage = 'Invalid OTP code. Please try again.';
+      } else if (err.code === 'auth/code-expired') {
+        userMessage = 'OTP code has expired. Please request a new one.';
+      } else {
+        userMessage += err.message;
+      }
+
+      return { success: false, error: userMessage };
     }
   };
 
@@ -234,8 +383,11 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     isAuthenticated: !!user,
-    sendMagicLink,
-    completeMagicLinkSignIn,
+    signUpWithEmail,
+    signInWithEmail,
+    signInWithOAuth,
+    sendOTP,
+    verifyOTP,
     signOut
   };
 

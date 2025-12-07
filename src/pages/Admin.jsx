@@ -14,7 +14,7 @@ import Footer from '../components/shared/Footer';
 const ADMIN_EMAIL = 'satindersandhu138@gmail.com';
 
 const Admin = () => {
-  const { user, isAuthenticated, sendMagicLink } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,6 @@ const Admin = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientDocuments, setClientDocuments] = useState([]);
   const [passphrasePrompt, setPassphrasePrompt] = useState(null);
-  const [adminLoginSent, setAdminLoginSent] = useState(false);
 
   const isAdmin = isAuthenticated && user?.email === ADMIN_EMAIL;
 
@@ -39,26 +38,6 @@ const Admin = () => {
   useEffect(() => {
     filterClients();
   }, [clients, searchTerm, statusFilter, provinceFilter]);
-
-  const handleAdminLogin = async () => {
-    // Store email in localStorage for magic link verification
-    window.localStorage.setItem('emailForSignIn', ADMIN_EMAIL);
-
-    const result = await sendMagicLink(ADMIN_EMAIL, {
-      firstName: 'Admin',
-      lastName: 'User',
-      province: 'ON',
-      annualRevenue: '0-50k',
-      employeeCount: '0',
-      estimatedSavings: 0,
-      adSource: 'Direct',
-      utmCampaign: null
-    });
-
-    if (result.success) {
-      setAdminLoginSent(true);
-    }
-  };
 
   const loadAllClients = async () => {
     try {
@@ -192,31 +171,12 @@ const Admin = () => {
             <p className="text-gray-600 mb-6">
               This area is restricted to administrators only.
             </p>
-
-            {!adminLoginSent ? (
-              <>
-                <p className="text-sm text-gray-500 mb-4">
-                  Click below to receive a secure login link at<br />
-                  <strong>{ADMIN_EMAIL}</strong>
-                </p>
-                <button
-                  onClick={handleAdminLogin}
-                  className="btn-primary w-full flex items-center justify-center"
-                >
-                  <Mail className="mr-2" size={20} />
-                  Send Admin Login Link
-                </button>
-              </>
-            ) : (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-800 font-semibold mb-2">
-                  ✅ Login link sent!
-                </p>
-                <p className="text-sm text-green-700">
-                  Check your email at <strong>{ADMIN_EMAIL}</strong> and click the link to access the admin dashboard.
-                </p>
-              </div>
-            )}
+            <p className="text-sm text-gray-500 mb-4">
+              Please sign in with the admin account to access the dashboard.
+            </p>
+            <a href="/sign-in" className="btn-primary w-full inline-block">
+              Go to Sign In
+            </a>
           </motion.div>
         </main>
         <Footer />

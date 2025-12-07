@@ -1,6 +1,12 @@
 // Firebase configuration and initialization
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  TwitterAuthProvider,
+  OAuthProvider
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
@@ -28,5 +34,16 @@ export const storage = getStorage(app);
 export const analytics = typeof window !== 'undefined' && import.meta.env.PROD
   ? getAnalytics(app)
   : null;
+
+// Initialize Auth Providers
+export const googleProvider = new GoogleAuthProvider();
+export const facebookProvider = new FacebookAuthProvider();
+export const twitterProvider = new TwitterAuthProvider();
+export const yahooProvider = new OAuthProvider('yahoo.com');
+
+// Configure providers
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 export default app;

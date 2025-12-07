@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogOut, FileText, MessageSquare, DollarSign, Loader } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -11,74 +11,23 @@ import GatorGuide from '../components/portal/GatorGuide';
 import StatusTracker from '../components/portal/StatusTracker';
 import UploadZone from '../components/portal/UploadZone';
 import { statusUpgradeConfetti } from '../utils/confetti';
-import { isSignInWithEmailLink } from 'firebase/auth';
-import { auth } from '../config/firebase';
-
-const ADMIN_EMAIL = 'satindersandhu138@gmail.com';
 
 const Portal = () => {
-  const { user, isAuthenticated, signOut, completeMagicLinkSignIn, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, signOut, loading: authLoading } = useAuth();
   const { getDashboardData, loading: dataLoading } = useFirebase();
   const { t } = useLanguage();
-  const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [gatorMessage, setGatorMessage] = useState('');
   const [gatorState, setGatorState] = useState('business');
-  const [signingIn, setSigningIn] = useState(false);
-  const [magicLinkProcessed, setMagicLinkProcessed] = useState(false);
 
   useEffect(() => {
-    // Check if this is a magic link sign-in
-    const handleMagicLinkSignIn = async () => {
-      // Prevent double execution (React Strict Mode renders twice in dev)
-      if (magicLinkProcessed) {
-        console.log('⏭️ Magic link already processed, skipping...');
-        return;
-      }
-
-      if (isSignInWithEmailLink(auth, window.location.href)) {
-        console.log('🔥 Magic link detected in URL, completing sign-in...');
-        setMagicLinkProcessed(true);
-        setSigningIn(true);
-        try {
-          const result = await completeMagicLinkSignIn();
-          if (result.success) {
-            console.log('✅ Magic link sign-in successful!');
-
-            // Check if this is an admin user using the returned email
-            if (result.email === ADMIN_EMAIL) {
-              console.log('🔐 Admin user detected, redirecting to /admin');
-              navigate('/admin', { replace: true });
-            } else {
-              // Clear the URL to remove the sign-in parameters
-              window.history.replaceState({}, document.title, '/portal');
-              // Wait a bit for auth state to propagate
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
-          } else {
-            console.error('❌ Magic link sign-in failed:', result.error);
-            setMagicLinkProcessed(false); // Allow retry on failure
-          }
-        } catch (err) {
-          console.error('❌ Magic link sign-in failed:', err);
-          setMagicLinkProcessed(false); // Allow retry on failure
-        } finally {
-          setSigningIn(false);
-        }
-      }
-    };
-
-    handleMagicLinkSignIn();
-  }, [magicLinkProcessed, completeMagicLinkSignIn, navigate]);
-
-  useEffect(() => {
-    if (isAuthenticated && user && !signingIn) {
+    if (isAuthenticated && user) {
       loadDashboard();
       setInitialGatorMessage();
     }
-  }, [isAuthenticated, user, signingIn]);
+  }, [isAuthenticated, user]);
 
   const loadDashboard = async () => {
     try {
@@ -121,19 +70,17 @@ const Portal = () => {
   };
 
   // Redirect if not authenticated
-  if (!authLoading && !isAuthenticated && !signingIn) {
+  if (!authLoading && !isAuthenticated) {
     return <Navigate to="/sign-in" replace />;
   }
 
   // Loading state
-  if (authLoading || signingIn || (isAuthenticated && !dashboardData)) {
+  if (authLoading || (isAuthenticated && !dashboardData)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gator-green-light to-white">
         <div className="text-center">
           <Loader className="animate-spin w-12 h-12 text-gator-green-dark mx-auto mb-4" />
-          <p className="text-gray-600">
-            {signingIn ? 'Signing you in...' : 'Loading your dashboard...'}
-          </p>
+          <p className="text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
     );

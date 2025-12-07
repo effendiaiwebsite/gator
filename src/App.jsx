@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth.jsx';
 import Home from './pages/Home';
 import SignIn from './pages/SignIn';
-import MagicLink from './pages/MagicLink';
+import Register from './pages/Register';
 import Portal from './pages/Portal';
 import Admin from './pages/Admin';
 import Services from './pages/Services';
@@ -23,7 +23,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/magic-link" element={<MagicLink />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/portal" element={<Portal />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/services" element={<Services />} />
