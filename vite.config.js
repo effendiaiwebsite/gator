@@ -10,6 +10,7 @@ export default defineConfig({
     strictPort: false,
     allowedHosts: [
       'gator.onrender.com',
+      'gatorbookkeeping.com',
       '.onrender.com',
       'localhost'
     ]
