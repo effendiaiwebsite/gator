@@ -84,6 +84,9 @@ const Header = () => {
               )}
             </div>
 
+            <a href="https://rtsadmin.com/book/gator-bookkeeping" className="text-gray-700 hover:text-gator-green-dark transition-colors font-medium" target="_blank" rel="noopener noreferrer">
+              Appointments
+            </a>
             <a href="/pricing" className="text-gray-700 hover:text-gator-green-dark transition-colors font-medium">
               Pricing
             </a>
@@ -165,6 +168,9 @@ const Header = () => {
                 )}
               </div>
 
+              <a href="https://rtsadmin.com/book/gator-bookkeeping" className="text-gray-700 hover:text-gator-green-dark transition-colors font-medium" target="_blank" rel="noopener noreferrer">
+                Appointments
+              </a>
               <a href="/pricing" className="text-gray-700 hover:text-gator-green-dark transition-colors font-medium">
                 Pricing
               </a>
